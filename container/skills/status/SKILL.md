@@ -70,6 +70,16 @@ Call mcp__nanoclaw__list_tasks to get scheduled tasks.
 
 If no tasks exist, report "No scheduled tasks."
 
+### 6. Host health (from snapshot)
+
+```bash
+cat /workspace/ipc/host-health.json 2>/dev/null || echo "unavailable"
+```
+
+Parse the JSON fields: `docker`, `onecli`, `nanoclaw`, `host_gateway`, `uptime_seconds`, `timestamp`.
+Convert uptime_seconds to a human-readable string (e.g. "2h 14m").
+If the file is missing or the timestamp is older than 10 minutes, note it as stale.
+
 ## Report format
 
 Present as a clean, readable message:
@@ -81,6 +91,12 @@ Present as a clean, readable message:
 • Channel: main
 • Time: 2026-03-14 09:30 UTC
 • Working dir: /workspace/group
+
+*Host Health:*
+• Docker: ✓ / ✗
+• OneCLI: ✓ / ✗
+• Host Gateway: ✓ / ✗
+• Uptime: 2h 14m
 
 *Workspace:*
 • Group folder: ✓ (N files)

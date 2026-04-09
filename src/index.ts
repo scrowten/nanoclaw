@@ -1,3 +1,4 @@
+import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
@@ -5,6 +6,7 @@ import { OneCLI } from '@onecli-sh/sdk';
 
 import {
   ASSISTANT_NAME,
+  DATA_DIR,
   DEFAULT_TRIGGER,
   getTriggerPattern,
   GROUPS_DIR,
@@ -754,6 +756,40 @@ async function main(): Promise<void> {
     logger.fatal({ err }, 'Message loop crashed unexpectedly');
     process.exit(1);
   });
+
+  // Periodically write host health snapshot for /status command
+  startHostHealthSnapshot();
+}
+
+function startHostHealthSnapshot(): void {
+  const scriptPath = path.join(process.cwd(), 'scripts', 'health-check.sh');
+  const outPath = path.join(DATA_DIR, 'host-health.json');
+
+  const writeSnapshot = () => {
+    if (!fs.existsSync(scriptPath)) return;
+    const child = execFile(
+      'bash',
+      [scriptPath],
+      { timeout: 30000 },
+      (err, stdout) => {
+        if (err) {
+          logger.debug({ err }, 'Health check script failed');
+          return;
+        }
+        try {
+          JSON.parse(stdout); // validate JSON
+          fs.mkdirSync(path.dirname(outPath), { recursive: true });
+          fs.writeFileSync(outPath, stdout.trim());
+        } catch {
+          logger.debug('Health check script produced invalid JSON');
+        }
+      },
+    );
+    child.unref();
+  };
+
+  writeSnapshot();
+  setInterval(writeSnapshot, 5 * 60 * 1000);
 }
 
 // Guard: only run when executed directly, not when imported by tests

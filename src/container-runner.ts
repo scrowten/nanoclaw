@@ -196,6 +196,17 @@ function buildVolumeMounts(
     readonly: false,
   });
 
+  // Host health snapshot — written by the host process every 5 minutes.
+  // Gives the /status skill visibility into Docker, OneCLI, and host networking.
+  const hostHealthPath = path.join(DATA_DIR, 'host-health.json');
+  if (fs.existsSync(hostHealthPath)) {
+    mounts.push({
+      hostPath: hostHealthPath,
+      containerPath: '/workspace/ipc/host-health.json',
+      readonly: true,
+    });
+  }
+
   // Copy agent-runner source into a per-group writable location so agents
   // can customize it (add tools, change behavior) without affecting other
   // groups. Recompiled on container startup via entrypoint.sh.
@@ -254,16 +265,28 @@ async function buildContainerArgs(
 
   // OneCLI gateway handles credential injection — containers never see real secrets.
   // The gateway intercepts HTTPS traffic and injects API keys or OAuth tokens.
-  const onecliApplied = await onecli.applyContainerConfig(args, {
+  // Retry once after 3s to handle the case where OneCLI is still starting up.
+  let onecliApplied = await onecli.applyContainerConfig(args, {
     addHostMapping: false, // Nanoclaw already handles host gateway
     agent: agentIdentifier,
   });
+  if (!onecliApplied) {
+    logger.warn(
+      { containerName },
+      'OneCLI gateway not reachable — retrying in 3s...',
+    );
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    onecliApplied = await onecli.applyContainerConfig(args, {
+      addHostMapping: false,
+      agent: agentIdentifier,
+    });
+  }
   if (onecliApplied) {
     logger.info({ containerName }, 'OneCLI gateway config applied');
   } else {
     logger.warn(
       { containerName },
-      'OneCLI gateway not reachable — container will have no credentials',
+      'OneCLI gateway not reachable after retry — container will have no credentials',
     );
   }
 

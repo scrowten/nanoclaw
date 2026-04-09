@@ -13,9 +13,10 @@ import { MOUNT_ALLOWLIST_PATH } from './config.js';
 import { logger } from './logger.js';
 import { AdditionalMount, AllowedRoot, MountAllowlist } from './types.js';
 
-// Cache the allowlist in memory - only reloads on process restart
+// Cache the allowlist in memory
 let cachedAllowlist: MountAllowlist | null = null;
 let allowlistLoadError: string | null = null;
+let allowlistErrorMtime: number | null = null; // mtime when error was cached
 
 /**
  * Default blocked patterns - paths that should never be mounted
@@ -51,8 +52,18 @@ export function loadMountAllowlist(): MountAllowlist | null {
   }
 
   if (allowlistLoadError !== null) {
-    // Already tried and failed, don't spam logs
-    return null;
+    // Re-check if the file was modified since the error was cached
+    try {
+      const currentMtime = fs.statSync(MOUNT_ALLOWLIST_PATH).mtimeMs;
+      if (allowlistErrorMtime !== null && currentMtime <= allowlistErrorMtime) {
+        return null; // File unchanged, keep returning null
+      }
+      // File was modified — clear the error and retry
+      allowlistLoadError = null;
+      allowlistErrorMtime = null;
+    } catch {
+      return null;
+    }
   }
 
   try {
@@ -102,6 +113,11 @@ export function loadMountAllowlist(): MountAllowlist | null {
     return cachedAllowlist;
   } catch (err) {
     allowlistLoadError = err instanceof Error ? err.message : String(err);
+    try {
+      allowlistErrorMtime = fs.statSync(MOUNT_ALLOWLIST_PATH).mtimeMs;
+    } catch {
+      allowlistErrorMtime = null;
+    }
     logger.error(
       {
         path: MOUNT_ALLOWLIST_PATH,
