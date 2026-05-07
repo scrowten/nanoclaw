@@ -10,6 +10,9 @@ const envConfig = readEnvFile([
   'ASSISTANT_HAS_OWN_NUMBER',
   'ONECLI_URL',
   'TZ',
+  'INFERENCE_BASE_URL',
+  'INFERENCE_API_KEY',
+  'INFERENCE_MODEL',
 ]);
 
 export const ASSISTANT_NAME =
@@ -52,6 +55,20 @@ export const CONTAINER_MAX_OUTPUT_SIZE = parseInt(
   10,
 ); // 10MB default
 export const ONECLI_URL = process.env.ONECLI_URL || envConfig.ONECLI_URL;
+
+// Self-hosted inference server config.
+// When INFERENCE_BASE_URL is set, containers bypass OneCLI and call this server directly.
+export const INFERENCE_BASE_URL =
+  process.env.INFERENCE_BASE_URL || envConfig.INFERENCE_BASE_URL;
+export const INFERENCE_API_KEY =
+  process.env.INFERENCE_API_KEY || envConfig.INFERENCE_API_KEY || 'local';
+export const INFERENCE_MODEL =
+  process.env.INFERENCE_MODEL || envConfig.INFERENCE_MODEL || 'local-model';
+// 80% of the model's 262144-token context window to leave compaction headroom.
+export const INFERENCE_CONTEXT_WINDOW = parseInt(
+  process.env.INFERENCE_CONTEXT_WINDOW || '210000',
+  10,
+);
 export const MAX_MESSAGES_PER_PROMPT = Math.max(
   1,
   parseInt(process.env.MAX_MESSAGES_PER_PROMPT || '10', 10) || 10,

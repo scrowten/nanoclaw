@@ -2,7 +2,12 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-import { DATA_DIR } from './config.js';
+import {
+  DATA_DIR,
+  INFERENCE_API_KEY,
+  INFERENCE_BASE_URL,
+  INFERENCE_MODEL,
+} from './config.js';
 import { logger } from './logger.js';
 
 interface RemoteControlSession {
@@ -109,8 +114,17 @@ export async function startRemoteControl(
 
   let proc;
   try {
+    const spawnEnv = INFERENCE_BASE_URL
+      ? {
+          ...process.env,
+          ANTHROPIC_BASE_URL: INFERENCE_BASE_URL,
+          ANTHROPIC_API_KEY: INFERENCE_API_KEY,
+          CLAUDE_MODEL: INFERENCE_MODEL,
+        }
+      : process.env;
     proc = spawn('claude', ['remote-control', '--name', 'NanoClaw Remote'], {
       cwd,
+      env: spawnEnv,
       stdio: ['pipe', stdoutFd, stderrFd],
       detached: true,
     });

@@ -13,6 +13,10 @@ import {
   DATA_DIR,
   GROUPS_DIR,
   IDLE_TIMEOUT,
+  INFERENCE_API_KEY,
+  INFERENCE_BASE_URL,
+  INFERENCE_CONTEXT_WINDOW,
+  INFERENCE_MODEL,
   ONECLI_URL,
   TIMEZONE,
 } from './config.js';
@@ -263,31 +267,48 @@ async function buildContainerArgs(
   // Pass host timezone so container's local time matches the user's
   args.push('-e', `TZ=${TIMEZONE}`);
 
-  // OneCLI gateway handles credential injection — containers never see real secrets.
-  // The gateway intercepts HTTPS traffic and injects API keys or OAuth tokens.
-  // Retry once after 3s to handle the case where OneCLI is still starting up.
-  let onecliApplied = await onecli.applyContainerConfig(args, {
-    addHostMapping: false, // Nanoclaw already handles host gateway
-    agent: agentIdentifier,
-  });
-  if (!onecliApplied) {
-    logger.warn(
-      { containerName },
-      'OneCLI gateway not reachable — retrying in 3s...',
+  if (INFERENCE_BASE_URL) {
+    // Self-hosted inference mode: inject credentials directly, skip OneCLI.
+    // ANTHROPIC_BASE_URL tells Claude Code/SDK to call this server instead of api.anthropic.com.
+    // CLAUDE_CODE_OAUTH_TOKEN must NOT be set or it overrides ANTHROPIC_API_KEY.
+    args.push('-e', `ANTHROPIC_BASE_URL=${INFERENCE_BASE_URL}`);
+    args.push('-e', `ANTHROPIC_API_KEY=${INFERENCE_API_KEY}`);
+    args.push('-e', `CLAUDE_MODEL=${INFERENCE_MODEL}`);
+    args.push(
+      '-e',
+      `CLAUDE_CODE_AUTO_COMPACT_WINDOW=${INFERENCE_CONTEXT_WINDOW}`,
     );
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    onecliApplied = await onecli.applyContainerConfig(args, {
-      addHostMapping: false,
+    logger.info(
+      { containerName, baseUrl: INFERENCE_BASE_URL, model: INFERENCE_MODEL },
+      'Self-hosted inference config applied',
+    );
+  } else {
+    // OneCLI gateway handles credential injection — containers never see real secrets.
+    // The gateway intercepts HTTPS traffic and injects API keys or OAuth tokens.
+    // Retry once after 3s to handle the case where OneCLI is still starting up.
+    let onecliApplied = await onecli.applyContainerConfig(args, {
+      addHostMapping: false, // Nanoclaw already handles host gateway
       agent: agentIdentifier,
     });
-  }
-  if (onecliApplied) {
-    logger.info({ containerName }, 'OneCLI gateway config applied');
-  } else {
-    logger.warn(
-      { containerName },
-      'OneCLI gateway not reachable after retry — container will have no credentials',
-    );
+    if (!onecliApplied) {
+      logger.warn(
+        { containerName },
+        'OneCLI gateway not reachable — retrying in 3s...',
+      );
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      onecliApplied = await onecli.applyContainerConfig(args, {
+        addHostMapping: false,
+        agent: agentIdentifier,
+      });
+    }
+    if (onecliApplied) {
+      logger.info({ containerName }, 'OneCLI gateway config applied');
+    } else {
+      logger.warn(
+        { containerName },
+        'OneCLI gateway not reachable after retry — container will have no credentials',
+      );
+    }
   }
 
   // Runtime-specific args for host gateway resolution
