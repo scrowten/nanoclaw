@@ -270,9 +270,10 @@ async function buildContainerArgs(
   if (INFERENCE_BASE_URL) {
     // Self-hosted inference mode: inject credentials directly, skip OneCLI.
     // ANTHROPIC_BASE_URL tells Claude Code/SDK to call this server instead of api.anthropic.com.
-    // CLAUDE_CODE_OAUTH_TOKEN must NOT be set or it overrides ANTHROPIC_API_KEY.
+    // Use CLAUDE_CODE_OAUTH_TOKEN (not ANTHROPIC_API_KEY) so the SDK sends
+    // "Authorization: Bearer KEY" — the header format self-hosted servers expect.
     args.push('-e', `ANTHROPIC_BASE_URL=${INFERENCE_BASE_URL}`);
-    args.push('-e', `ANTHROPIC_API_KEY=${INFERENCE_API_KEY}`);
+    args.push('-e', `CLAUDE_CODE_OAUTH_TOKEN=${INFERENCE_API_KEY}`);
     args.push('-e', `CLAUDE_MODEL=${INFERENCE_MODEL}`);
     args.push(
       '-e',

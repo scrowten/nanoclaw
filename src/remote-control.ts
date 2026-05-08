@@ -118,7 +118,7 @@ export async function startRemoteControl(
       ? {
           ...process.env,
           ANTHROPIC_BASE_URL: INFERENCE_BASE_URL,
-          ANTHROPIC_API_KEY: INFERENCE_API_KEY,
+          CLAUDE_CODE_OAUTH_TOKEN: INFERENCE_API_KEY,
           CLAUDE_MODEL: INFERENCE_MODEL,
         }
       : process.env;
