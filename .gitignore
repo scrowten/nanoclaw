@@ -13,10 +13,16 @@ logs/
 groups/*
 !groups/main/
 !groups/global/
+!groups/tg_engineering/
 groups/main/*
 groups/global/*
+groups/tg_engineering/*
 !groups/main/CLAUDE.md
 !groups/global/CLAUDE.md
+!groups/tg_engineering/CLAUDE.md
+!groups/tg_engineering/workflows/
+groups/tg_engineering/workflows/*
+!groups/tg_engineering/workflows/README.md
 
 # Secrets
 *.keys.json
