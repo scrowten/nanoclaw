@@ -216,38 +216,39 @@ If found:
 
 ## API References
 
-API tools are available as container skills. Use `curl` for all API calls — credentials are injected by OneCLI.
+API tools are available as container skills. Use `curl` for all API calls — OneCLI's HTTPS proxy automatically injects auth headers based on the request host. Do NOT add Authorization headers manually.
 
 ### Jira API
 
 Base URL: `https://redawning.atlassian.net/rest/api/3`
-Auth: `Authorization: Basic <base64(email:token)>` (injected by OneCLI)
+Auth: Auto-injected by OneCLI (`*.atlassian.net` → Basic auth)
 
 Key operations:
-- Get issue: `GET /issue/{key}`
-- Create issue: `POST /issue`
-- Update issue: `PUT /issue/{key}`
-- Add comment: `POST /issue/{key}/comment`
-- Get transitions: `GET /issue/{key}/transitions`
-- Transition issue: `POST /issue/{key}/transitions` with `{"transition": {"id": "<id>"}}`
-- Search: `GET /search?jql=<query>`
+- Get issue: `curl -s "https://redawning.atlassian.net/rest/api/3/issue/{key}"`
+- Create issue: `curl -s -X POST -H "Content-Type: application/json" -d '...' "https://redawning.atlassian.net/rest/api/3/issue"`
+- Update issue: `curl -s -X PUT -H "Content-Type: application/json" -d '...' "https://redawning.atlassian.net/rest/api/3/issue/{key}"`
+- Add comment: `curl -s -X POST -H "Content-Type: application/json" -d '...' "https://redawning.atlassian.net/rest/api/3/issue/{key}/comment"`
+- Get transitions: `curl -s "https://redawning.atlassian.net/rest/api/3/issue/{key}/transitions"`
+- Transition issue: `curl -s -X POST -H "Content-Type: application/json" -d '{"transition": {"id": "<id>"}}' "https://redawning.atlassian.net/rest/api/3/issue/{key}/transitions"`
+- Search: `curl -s "https://redawning.atlassian.net/rest/api/3/search?jql=<query>"`
 
 ### Bitbucket API
 
 Base URL: `https://api.bitbucket.org/2.0`
-Auth: `Authorization: Basic <base64(username:app-password)>` (injected by OneCLI)
+Auth: Auto-injected by OneCLI (`api.bitbucket.org` → Basic auth)
+Workspace: `redawning` | Repo: `propops-webapp`
 
 Key operations:
-- Create PR: `POST /repositories/{workspace}/{slug}/pullrequests`
-- Get PR: `GET /repositories/{workspace}/{slug}/pullrequests/{id}`
-- Merge PR: `POST /repositories/{workspace}/{slug}/pullrequests/{id}/merge`
-- Get pipelines: `GET /repositories/{workspace}/{slug}/pipelines/`
+- Create PR: `curl -s -X POST -H "Content-Type: application/json" -d '...' "https://api.bitbucket.org/2.0/repositories/redawning/propops-webapp/pullrequests"`
+- Get PR: `curl -s "https://api.bitbucket.org/2.0/repositories/redawning/propops-webapp/pullrequests/{id}"`
+- Merge PR: `curl -s -X POST -H "Content-Type: application/json" -d '{"merge_strategy": "squash"}' "https://api.bitbucket.org/2.0/repositories/redawning/propops-webapp/pullrequests/{id}/merge"`
+- Get pipelines: `curl -s "https://api.bitbucket.org/2.0/repositories/redawning/propops-webapp/pipelines/"`
 
 ### Confluence API
 
 Base URL: `https://redawning.atlassian.net/wiki/rest/api`
-Auth: Same as Jira
+Auth: Same as Jira (auto-injected by OneCLI)
 
 Key operations:
-- Search: `GET /content?title=<title>&spaceKey=<key>`
-- Read page: `GET /content/{id}?expand=body.storage`
+- Search: `curl -s "https://redawning.atlassian.net/wiki/rest/api/content?title=<title>&spaceKey=<key>"`
+- Read page: `curl -s "https://redawning.atlassian.net/wiki/rest/api/content/{id}?expand=body.storage"`

@@ -1,15 +1,14 @@
 # Bitbucket REST API Reference
 
 Base URL: `https://api.bitbucket.org/2.0`
-Auth header: `Authorization: Basic $BB_AUTH` (injected by OneCLI)
-Workspace: `redawning` (confirm actual workspace slug)
+Auth: Injected automatically by OneCLI proxy (host pattern: `api.bitbucket.org`). Do NOT add Authorization headers manually.
+Workspace: `redawning`
 Repo slug: `propops-webapp`
 
 ## Create Pull Request
 
 ```bash
-curl -s -X POST -H "Authorization: Basic $BB_AUTH" \
-  -H "Content-Type: application/json" \
+curl -s -X POST -H "Content-Type: application/json" \
   -d '{
     "title": "PROP-123: Short description",
     "description": "## Summary\n- Implemented feature X\n- Added tests\n\n## Jira\nhttps://redawning.atlassian.net/browse/PROP-123\n\n## Test Evidence\n- All tests pass\n- Manually verified on staging",
@@ -21,46 +20,41 @@ curl -s -X POST -H "Authorization: Basic $BB_AUTH" \
     },
     "close_source_branch": true
   }' \
-  "https://api.bitbucket.org/2.0/repositories/<workspace>/propops-webapp/pullrequests" | jq .
+  "https://api.bitbucket.org/2.0/repositories/redawning/propops-webapp/pullrequests" | jq .
 ```
 
 ## Get Pull Request
 
 ```bash
-curl -s -H "Authorization: Basic $BB_AUTH" \
-  "https://api.bitbucket.org/2.0/repositories/<workspace>/propops-webapp/pullrequests/<pr-id>" | jq .
+curl -s "https://api.bitbucket.org/2.0/repositories/redawning/propops-webapp/pullrequests/<pr-id>" | jq .
 ```
 
 ## List Open Pull Requests
 
 ```bash
-curl -s -H "Authorization: Basic $BB_AUTH" \
-  "https://api.bitbucket.org/2.0/repositories/<workspace>/propops-webapp/pullrequests?state=OPEN" | jq '.values[] | {id, title, state}'
+curl -s "https://api.bitbucket.org/2.0/repositories/redawning/propops-webapp/pullrequests?state=OPEN" | jq '.values[] | {id, title, state}'
 ```
 
 ## Merge Pull Request
 
 ```bash
-curl -s -X POST -H "Authorization: Basic $BB_AUTH" \
-  -H "Content-Type: application/json" \
+curl -s -X POST -H "Content-Type: application/json" \
   -d '{"merge_strategy": "squash"}' \
-  "https://api.bitbucket.org/2.0/repositories/<workspace>/propops-webapp/pullrequests/<pr-id>/merge" | jq .
+  "https://api.bitbucket.org/2.0/repositories/redawning/propops-webapp/pullrequests/<pr-id>/merge" | jq .
 ```
 
 ## Get Pipeline Status
 
 ```bash
-curl -s -H "Authorization: Basic $BB_AUTH" \
-  "https://api.bitbucket.org/2.0/repositories/<workspace>/propops-webapp/pipelines/?sort=-created_on&pagelen=5" | jq '.values[] | {uuid, state, created_on}'
+curl -s "https://api.bitbucket.org/2.0/repositories/redawning/propops-webapp/pipelines/?sort=-created_on&pagelen=5" | jq '.values[] | {uuid, state, created_on}'
 ```
 
 ## Add PR Comment
 
 ```bash
-curl -s -X POST -H "Authorization: Basic $BB_AUTH" \
-  -H "Content-Type: application/json" \
+curl -s -X POST -H "Content-Type: application/json" \
   -d '{"content": {"raw": "Code review passed. Ready to merge."}}' \
-  "https://api.bitbucket.org/2.0/repositories/<workspace>/propops-webapp/pullrequests/<pr-id>/comments"
+  "https://api.bitbucket.org/2.0/repositories/redawning/propops-webapp/pullrequests/<pr-id>/comments"
 ```
 
 ## Git Push (via CLI)

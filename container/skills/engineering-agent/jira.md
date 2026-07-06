@@ -1,28 +1,25 @@
 # Jira REST API Reference
 
 Base URL: `https://redawning.atlassian.net/rest/api/3`
-Auth header: `Authorization: Basic $JIRA_AUTH` (injected by OneCLI)
+Auth: Injected automatically by OneCLI proxy (host pattern: `*.atlassian.net`). Do NOT add Authorization headers manually.
 
 ## Get Issue
 
 ```bash
-curl -s -H "Authorization: Basic $JIRA_AUTH" \
-  "https://redawning.atlassian.net/rest/api/3/issue/PROP-123" | jq .
+curl -s "https://redawning.atlassian.net/rest/api/3/issue/PROP-123" | jq .
 ```
 
 ## Search Issues (JQL)
 
 ```bash
-curl -s -H "Authorization: Basic $JIRA_AUTH" \
-  --data-urlencode "jql=project=PROP AND status='To Do'" \
+curl -s --data-urlencode "jql=project=PROP AND status='To Do'" \
   "https://redawning.atlassian.net/rest/api/3/search" | jq .
 ```
 
 ## Create Issue
 
 ```bash
-curl -s -X POST -H "Authorization: Basic $JIRA_AUTH" \
-  -H "Content-Type: application/json" \
+curl -s -X POST -H "Content-Type: application/json" \
   -d '{
     "fields": {
       "project": {"key": "PROP"},
@@ -37,8 +34,7 @@ curl -s -X POST -H "Authorization: Basic $JIRA_AUTH" \
 ## Create Subtask
 
 ```bash
-curl -s -X POST -H "Authorization: Basic $JIRA_AUTH" \
-  -H "Content-Type: application/json" \
+curl -s -X POST -H "Content-Type: application/json" \
   -d '{
     "fields": {
       "project": {"key": "PROP"},
@@ -53,8 +49,7 @@ curl -s -X POST -H "Authorization: Basic $JIRA_AUTH" \
 ## Update Issue
 
 ```bash
-curl -s -X PUT -H "Authorization: Basic $JIRA_AUTH" \
-  -H "Content-Type: application/json" \
+curl -s -X PUT -H "Content-Type: application/json" \
   -d '{
     "fields": {
       "summary": "Updated title",
@@ -67,8 +62,7 @@ curl -s -X PUT -H "Authorization: Basic $JIRA_AUTH" \
 ## Add Comment
 
 ```bash
-curl -s -X POST -H "Authorization: Basic $JIRA_AUTH" \
-  -H "Content-Type: application/json" \
+curl -s -X POST -H "Content-Type: application/json" \
   -d '{
     "body": {
       "type": "doc",
@@ -82,8 +76,7 @@ curl -s -X POST -H "Authorization: Basic $JIRA_AUTH" \
 ## Get Available Transitions
 
 ```bash
-curl -s -H "Authorization: Basic $JIRA_AUTH" \
-  "https://redawning.atlassian.net/rest/api/3/issue/PROP-123/transitions" | jq '.transitions[] | {id, name}'
+curl -s "https://redawning.atlassian.net/rest/api/3/issue/PROP-123/transitions" | jq '.transitions[] | {id, name}'
 ```
 
 ## Transition Issue (Move Status)
@@ -91,8 +84,7 @@ curl -s -H "Authorization: Basic $JIRA_AUTH" \
 First get available transitions (above), then execute:
 
 ```bash
-curl -s -X POST -H "Authorization: Basic $JIRA_AUTH" \
-  -H "Content-Type: application/json" \
+curl -s -X POST -H "Content-Type: application/json" \
   -d '{"transition": {"id": "<transition-id>"}}' \
   "https://redawning.atlassian.net/rest/api/3/issue/PROP-123/transitions"
 ```

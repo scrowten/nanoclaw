@@ -1,27 +1,24 @@
 # Confluence REST API Reference
 
 Base URL: `https://redawning.atlassian.net/wiki/rest/api`
-Auth header: `Authorization: Basic $JIRA_AUTH` (same Atlassian token as Jira)
+Auth: Injected automatically by OneCLI proxy (same `*.atlassian.net` host pattern as Jira). Do NOT add Authorization headers manually.
 
 ## Search Pages by Title
 
 ```bash
-curl -s -H "Authorization: Basic $JIRA_AUTH" \
-  "https://redawning.atlassian.net/wiki/rest/api/content?title=Development+Deployment+Workflow&spaceKey=PO" | jq '.results[] | {id, title}'
+curl -s "https://redawning.atlassian.net/wiki/rest/api/content?title=Development+Deployment+Workflow&spaceKey=PO" | jq '.results[] | {id, title}'
 ```
 
 ## Read Page Content
 
 ```bash
-curl -s -H "Authorization: Basic $JIRA_AUTH" \
-  "https://redawning.atlassian.net/wiki/rest/api/content/<page-id>?expand=body.storage" | jq '.body.storage.value'
+curl -s "https://redawning.atlassian.net/wiki/rest/api/content/<page-id>?expand=body.storage" | jq '.body.storage.value'
 ```
 
 ## Search by CQL (Confluence Query Language)
 
 ```bash
-curl -s -H "Authorization: Basic $JIRA_AUTH" \
-  --data-urlencode "cql=space=PO AND type=page AND text~'deployment'" \
+curl -s --data-urlencode "cql=space=PO AND type=page AND text~'deployment'" \
   "https://redawning.atlassian.net/wiki/rest/api/content/search" | jq '.results[] | {id, title}'
 ```
 
