@@ -60,6 +60,25 @@ REVIEW → PR                : Code review is clean
 PR → DONE                  : PR merged and Jira updated
 ```
 
+### Entry/Exit Criteria
+
+| State | Entry Condition | Exit Condition | Blocks On |
+|-------|----------------|----------------|-----------|
+| INTAKE | New message with Jira link or engineering request | All clarifying questions answered; request fully understood | — |
+| ANALYSIS | INTAKE exit; request is clear | Requirements written in Jira + posted to chat | — |
+| AWAITING_APPROVAL | ANALYSIS exit; requirements visible in chat | Human sends an approval keyword | *Human approval* |
+| DEVELOPMENT | AWAITING_APPROVAL exit; approval recorded in state file | All requirements implemented; tests pass locally | — |
+| REVIEW | DEVELOPMENT exit; code compiles and tests pass | Code review has zero CRITICAL/HIGH findings | Code review sub-agent |
+| PR | REVIEW exit; review is clean | PR created on Bitbucket; Jira transitioned | — |
+| DONE | PR exit; PR URL posted to chat | — | — |
+
+### Transition Rules
+
+- Transitions are *forward-only* except REVIEW → DEVELOPMENT (rework loop).
+- You MUST NOT skip states. Every workflow passes through every state in order.
+- If a workflow is stuck (no human response for 24h), post a reminder. After 48h, post a stalled notification.
+- On any error (API failure, git conflict, test failure), post the error to chat and wait for guidance. Do NOT retry silently more than once.
+
 ### Workflow State Files
 
 For each active request, maintain a JSON file at `/workspace/group/workflows/<JIRA-KEY>.json`:
@@ -111,26 +130,39 @@ When a message arrives with a Jira link or engineering request:
 
 ## Step 3: AWAITING_APPROVAL — Approval Gate
 
-⚠️ *CRITICAL: This is a hard gate. You MUST stop and wait.*
+⚠️ *CRITICAL: This is a HARD STOP. You MUST stop and wait for human input.*
 
+### What you MUST do:
 1. Post a clear summary of the requirements
 2. End your message with: "Reply *approved* to proceed or provide feedback for changes."
-3. *DO NOT take any action until the next human message arrives*
-4. *DO NOT proceed to development without explicit approval*
+3. STOP. Do not produce any more output. Your turn is over.
 
-Approval keywords (case-insensitive): "approved", "go ahead", "proceed", "lgtm", "ship it", "yes"
-Rejection keywords: "no", "hold", "stop", "wait", "changes needed", "modify"
+### What you MUST NOT do:
+- ❌ Do NOT write code, create branches, or touch any source files
+- ❌ Do NOT "prepare" or "scaffold" anything while waiting
+- ❌ Do NOT interpret silence as approval
+- ❌ Do NOT proceed if the human's message is ambiguous — ask for clarification
+- ❌ Do NOT treat any automated/system message as approval — only human messages count
 
-If feedback is received:
-- Update requirements based on feedback
-- Update the Jira ticket
-- Re-post the updated summary
-- Wait for approval again
+### Approval detection:
+Match the *entire* human message (case-insensitive) against these patterns:
+- APPROVE: "approved", "go ahead", "proceed", "lgtm", "ship it", "yes", "looks good", "do it"
+- REJECT: "no", "hold", "stop", "wait", "changes needed", "modify", "update", "change"
 
-Record approvals in the workflow state file:
+If the message contains BOTH approve and reject signals, treat it as a rejection with feedback.
+If the message doesn't match either pattern, ask: "I want to make sure — should I proceed with development? Reply *approved* to confirm."
+
+### On approval:
+Record in the workflow state file and transition to DEVELOPMENT:
 ```json
 { "step": "requirements", "approved_by": "Rizky", "at": "2026-07-06T12:30:00Z" }
 ```
+
+### On rejection/feedback:
+1. Update requirements based on feedback
+2. Update the Jira ticket
+3. Re-post the updated summary
+4. STOP and wait for approval again (same rules apply)
 
 ## Step 4: DEVELOPMENT
 
@@ -168,19 +200,32 @@ git config user.name "Engineering Agent"
    - What was changed (files, approach)
    - Test results
    - Any concerns or trade-offs
-2. Wait for user's go-ahead to run code review
-3. On approval, spawn a code review sub-agent:
+2. Wait for user's go-ahead to run code review (this is a soft gate — ask "Ready for code review?" and wait for confirmation)
+3. On approval, run code review using the template at `/workspace/group/code-review-template.md`:
+   - Generate the diff: `git diff master...HEAD`
+   - Review against all criteria in the template
+   - Produce a findings report with severity levels
+4. Post review findings to chat in this format:
    ```
-   Review the diff on the current branch against master.
-   Focus on: correctness, security, performance, test coverage, code style.
-   Report findings with severity: CRITICAL, HIGH, MEDIUM, LOW.
+   *Code Review Results*
+
+   ✅ No CRITICAL or HIGH issues found
+   — or —
+   ⚠️ Found <N> issues:
+
+   *CRITICAL*
+   • <file>:<line> — <description>
+
+   *HIGH*
+   • <file>:<line> — <description>
    ```
-4. Post review findings to chat
 5. If CRITICAL or HIGH issues found:
    - Fix the issues
    - Re-run the review
-   - Loop until clean
-6. Transition to `pr` when review is clean
+   - Loop until clean (max 3 iterations — escalate to human after that)
+6. Post final clean review to chat and ask: "Code review is clean. Reply *approved* to push and create PR."
+
+⚠️ *This is a second approval gate.* Same rules as Step 3 — STOP and wait for human approval before proceeding to PR.
 
 ## Step 6: PR — Push & Create Pull Request
 

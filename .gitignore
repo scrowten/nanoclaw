@@ -20,6 +20,7 @@ groups/tg_engineering/*
 !groups/main/CLAUDE.md
 !groups/global/CLAUDE.md
 !groups/tg_engineering/CLAUDE.md
+!groups/tg_engineering/code-review-template.md
 !groups/tg_engineering/workflows/
 groups/tg_engineering/workflows/*
 !groups/tg_engineering/workflows/README.md
