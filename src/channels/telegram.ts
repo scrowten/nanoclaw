@@ -32,14 +32,44 @@ async function sendTelegramMessage(
   chatId: string | number,
   text: string,
   options: { message_thread_id?: number } = {},
+  botToken?: string,
 ): Promise<void> {
+  // Use direct fetch to avoid grammY HTTP client issues in some environments
+  if (botToken) {
+    const body: Record<string, unknown> = {
+      chat_id: chatId,
+      text,
+      parse_mode: 'Markdown',
+      ...options,
+    };
+    const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+    let resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      // Retry without parse_mode (Markdown parsing error)
+      delete body.parse_mode;
+      resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`Telegram API error ${resp.status}: ${errText}`);
+      }
+    }
+    return;
+  }
+
   try {
     await api.sendMessage(chatId, text, {
       ...options,
       parse_mode: 'Markdown',
     });
   } catch (err) {
-    // Fallback: send as plain text if Markdown parsing fails
     logger.debug({ err }, 'Markdown send failed, falling back to plain text');
     await api.sendMessage(chatId, text, options);
   }
@@ -381,7 +411,13 @@ export class TelegramChannel implements Channel {
       // Telegram has a 4096 character limit per message — split if needed
       const MAX_LENGTH = 4096;
       if (text.length <= MAX_LENGTH) {
-        await sendTelegramMessage(this.bot.api, numericId, text, options);
+        await sendTelegramMessage(
+          this.bot.api,
+          numericId,
+          text,
+          options,
+          this.botToken,
+        );
       } else {
         for (let i = 0; i < text.length; i += MAX_LENGTH) {
           await sendTelegramMessage(
@@ -389,6 +425,7 @@ export class TelegramChannel implements Channel {
             numericId,
             text.slice(i, i + MAX_LENGTH),
             options,
+            this.botToken,
           );
         }
       }
