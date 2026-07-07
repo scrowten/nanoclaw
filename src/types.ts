@@ -31,6 +31,7 @@ export interface ContainerConfig {
   additionalMounts?: AdditionalMount[];
   timeout?: number; // Default: 300000 (5 minutes)
   sshAccess?: boolean; // Mount ~/.config/nanoclaw/ssh-keys/ read-only into container
+  maxTurns?: number; // Max agentic turns per query (default: 200 from SDK)
 }
 
 export interface RegisteredGroup {
