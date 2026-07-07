@@ -65,11 +65,14 @@ Read `/home/node/.claude/skills/engineering-agent/jenkins.md` for the full API r
 
 Quick reference:
 ```bash
-# Trigger build (via SSH tunnel)
-ssh jenkins "curl -s -X POST http://localhost:8080/job/<job-name>/build"
+# Trigger staging build (via SSH tunnel)
+ssh jenkins "curl -s -X POST http://localhost:8090/job/propops-webapp-pipeline-staging/build"
+
+# Trigger production build
+ssh jenkins "curl -s -X POST http://localhost:8090/job/propops-webapp-pipeline/build"
 
 # Check build status
-ssh jenkins "curl -s http://localhost:8080/job/<job-name>/lastBuild/api/json" | jq '{number, result, building}'
+ssh jenkins "curl -s http://localhost:8090/job/propops-webapp-pipeline/lastBuild/api/json" | jq '{number, result, building}'
 ```
 
 ## Deployment
@@ -78,9 +81,9 @@ Read `/home/node/.claude/skills/engineering-agent/deploy.md` for full procedures
 
 Quick reference:
 ```bash
-# Deploy webapp to staging
-ssh staging "cd /opt/propops-webapp && git pull && npm run build && sudo systemctl restart propops-webapp"
+# Deploy webapp to staging via Jenkins
+ssh jenkins "curl -s -X POST http://localhost:8090/job/propops-webapp-pipeline-staging/build"
 
-# Deploy to production via Jenkins
-ssh jenkins "curl -s -X POST 'http://localhost:8080/job/<webapp-prod-job>/buildWithParameters?BRANCH=master'"
+# Deploy webapp to production via Jenkins
+ssh jenkins "curl -s -X POST http://localhost:8090/job/propops-webapp-pipeline/build"
 ```

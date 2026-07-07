@@ -1,14 +1,17 @@
 # Deployment Procedures
 
 All deployments follow: staging first → verify → approval → production.
-Paths below are placeholders — verify actual paths on first SSH connection.
 
 ## PropOps Webapp
 
-### Deploy to Staging (SSH)
+### Deploy to Staging (Jenkins)
 ```bash
-ssh staging "cd /opt/propops-webapp && git fetch origin && git checkout master && git pull && npm install && npm run build && sudo systemctl restart propops-webapp"
+ssh jenkins "curl -s -X POST http://localhost:8090/job/propops-webapp-pipeline-staging/build"
 ```
+
+Staging deploys to `lubuntus@192.168.1.175`:
+- Path: `/home/lubuntus/Documents/webapp-project/staging/propops-webapp`
+- Branch: `Dev`
 
 ### Verify Staging
 ```bash
@@ -19,38 +22,46 @@ ssh staging "journalctl -u propops-webapp --since '2 minutes ago' --no-pager -n 
 
 ### Deploy to Production (Jenkins)
 ```bash
-ssh jenkins "curl -s -X POST 'http://localhost:8080/job/<webapp-prod-job>/buildWithParameters?BRANCH=master'"
+ssh jenkins "curl -s -X POST http://localhost:8090/job/propops-webapp-pipeline/build"
 ```
 
-### Monitor Production Build
+### Monitor Build
 ```bash
-ssh jenkins "curl -s http://localhost:8080/job/<webapp-prod-job>/lastBuild/api/json" | jq '{number, result, building}'
+ssh jenkins "curl -s http://localhost:8090/job/propops-webapp-pipeline/lastBuild/api/json" | jq '{number, result, building}'
 ```
 
 ## Airflow DAGs
 
-### Deploy to Staging
+### Deploy to Staging (Jenkins)
 ```bash
-ssh staging "cd /opt/airflow/dags && git fetch origin && git checkout master && git pull"
-ssh staging "cd /opt/airflow && docker compose restart airflow-scheduler"
+ssh jenkins "curl -s -X POST http://localhost:8090/job/Airflow-CI-CD-staging/build"
 ```
 
 ### Deploy to Production (Jenkins)
 ```bash
-ssh jenkins "curl -s -X POST 'http://localhost:8080/job/<airflow-prod-job>/buildWithParameters?BRANCH=master'"
+ssh jenkins "curl -s -X POST http://localhost:8090/job/Airflow-CI-CD/build"
 ```
 
 ## Rollback
 
-### Rollback Staging Webapp
+### Rollback via Jenkins (re-run previous successful build)
 ```bash
-ssh staging "cd /opt/propops-webapp && git checkout <previous-tag> && npm install && npm run build && sudo systemctl restart propops-webapp"
+ssh jenkins "curl -s -X POST http://localhost:8090/job/propops-webapp-pipeline/<build-number>/replay"
 ```
 
-### Rollback Production (via Jenkins)
+### Rollback with specific branch/tag
 ```bash
-ssh jenkins "curl -s -X POST 'http://localhost:8080/job/<webapp-prod-job>/buildWithParameters?BRANCH=<known-good-tag>'"
+ssh jenkins "curl -s -X POST 'http://localhost:8090/job/propops-webapp-pipeline/buildWithParameters?BRANCH=<known-good-tag>'"
 ```
+
+## Pipeline Jobs
+
+| Job Name | Purpose |
+|----------|---------|
+| `propops-webapp-pipeline` | Deploy webapp to production |
+| `propops-webapp-pipeline-staging` | Deploy webapp to staging |
+| `Airflow-CI-CD` | Deploy Airflow to production |
+| `Airflow-CI-CD-staging` | Deploy Airflow to staging |
 
 ## Safety Rules
 
@@ -60,11 +71,3 @@ ssh jenkins "curl -s -X POST 'http://localhost:8080/job/<webapp-prod-job>/buildW
 - Monitor logs for 5 minutes after production deploy
 - If anything looks wrong, trigger rollback immediately
 - Post deployment status to chat at every step
-
-## First-Time Setup
-
-On first use, SSH into each server and verify:
-1. Actual project paths (`find / -name propops-webapp -type d 2>/dev/null`)
-2. Service names (`systemctl list-units | grep -i prop`)
-3. Jenkins job names (`ssh jenkins "curl -s http://localhost:8080/api/json?tree=jobs[name]"`)
-4. Read Confluence deployment page for the canonical workflow

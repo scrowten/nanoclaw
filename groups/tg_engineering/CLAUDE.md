@@ -251,9 +251,10 @@ git config user.name "Engineering Agent"
 
 1. Deploy to staging server via SSH:
    ```bash
-   ssh staging "cd /opt/propops-webapp && git fetch origin && git pull origin master && npm install && npm run build && sudo systemctl restart propops-webapp"
+   ssh jenkins "curl -s -X POST http://localhost:8090/job/propops-webapp-pipeline-staging/build"
    ```
-   (Verify actual paths on first use — see `/home/node/.claude/skills/engineering-agent/deploy.md`)
+   Staging deploys to `lubuntus@192.168.1.175` at `/home/lubuntus/Documents/webapp-project/staging/propops-webapp` (branch: `Dev`).
+   See `/home/node/.claude/skills/engineering-agent/deploy.md` for full procedures.
 2. Verify deployment:
    ```bash
    ssh staging "systemctl status propops-webapp --no-pager"
@@ -272,18 +273,18 @@ git config user.name "Engineering Agent"
 
 1. Trigger production Jenkins job:
    ```bash
-   ssh jenkins "curl -s -X POST 'http://localhost:8080/job/<webapp-prod-job>/buildWithParameters?BRANCH=master'"
+   ssh jenkins "curl -s -X POST http://localhost:8090/job/propops-webapp-pipeline/build"
    ```
 2. Monitor build status (poll every 30s, max 10 minutes):
    ```bash
-   ssh jenkins "curl -s http://localhost:8080/job/<webapp-prod-job>/lastBuild/api/json" | jq '{number, result, building}'
+   ssh jenkins "curl -s http://localhost:8090/job/propops-webapp-pipeline/lastBuild/api/json" | jq '{number, result, building}'
    ```
 3. If build succeeds:
    - Post to chat: "Production deployment successful. Build #<N>."
    - Transition Jira ticket to Done
    - Update workflow state to `done`
 4. If build fails:
-   - Get console output: `ssh jenkins "curl -s http://localhost:8080/job/<webapp-prod-job>/lastBuild/consoleText" | tail -50`
+   - Get console output: `ssh jenkins "curl -s http://localhost:8090/job/propops-webapp-pipeline/lastBuild/consoleText" | tail -50`
    - Post error summary to chat
    - Ask: "Build failed. Should I trigger rollback?"
    - On approval: trigger rollback (re-run last successful build)
@@ -366,7 +367,7 @@ Key operations:
 Access Jenkins on `192.168.1.201` through SSH since it runs on HTTP.
 
 Key operations:
-- Trigger build: `ssh jenkins "curl -s -X POST http://localhost:8080/job/<job>/build"`
-- Build status: `ssh jenkins "curl -s http://localhost:8080/job/<job>/lastBuild/api/json" | jq '{number, result, building}'`
-- Console output: `ssh jenkins "curl -s http://localhost:8080/job/<job>/lastBuild/consoleText" | tail -50`
-- List jobs: `ssh jenkins "curl -s http://localhost:8080/api/json?tree=jobs[name,color]" | jq '.jobs[]'`
+- Trigger build: `ssh jenkins "curl -s -X POST http://localhost:8090/job/propops-webapp-pipeline/build"`
+- Build status: `ssh jenkins "curl -s http://localhost:8090/job/propops-webapp-pipeline/lastBuild/api/json" | jq '{number, result, building}'`
+- Console output: `ssh jenkins "curl -s http://localhost:8090/job/propops-webapp-pipeline/lastBuild/consoleText" | tail -50`
+- List jobs: `ssh jenkins "curl -s http://localhost:8090/api/json?tree=jobs[name,color]" | jq '.jobs[]'`
