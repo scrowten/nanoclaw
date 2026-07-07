@@ -697,6 +697,39 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Notify groups with in-progress workflows that the agent is back online
+  for (const [jid, group] of Object.entries(registeredGroups)) {
+    const workflowsDir = path.join(GROUPS_DIR, group.folder, 'workflows');
+    if (!fs.existsSync(workflowsDir)) continue;
+    const files = fs
+      .readdirSync(workflowsDir)
+      .filter((f) => f.endsWith('.json'));
+    const active: string[] = [];
+    for (const file of files) {
+      try {
+        const data = JSON.parse(
+          fs.readFileSync(path.join(workflowsDir, file), 'utf-8'),
+        );
+        if (data.status && data.status !== 'done') {
+          active.push(`${data.jiraKey || file} (${data.status})`);
+        }
+      } catch {
+        // skip malformed files
+      }
+    }
+    if (active.length > 0) {
+      const channel = findChannel(channels, jid);
+      if (channel) {
+        const msg = `Back online. Resuming ${active.length} in-progress workflow(s):\n${active.map((a) => `• ${a}`).join('\n')}`;
+        channel
+          .sendMessage(jid, msg)
+          .catch((err) =>
+            logger.warn({ err, jid }, 'Failed to send restart notification'),
+          );
+      }
+    }
+  }
+
   // Start subsystems (independently of connection handler)
   startSchedulerLoop({
     registeredGroups: () => registeredGroups,

@@ -1,11 +1,11 @@
 ---
 name: engineering-agent
-description: Engineering SDLC tools — Jira, Bitbucket, and Confluence integration via REST APIs. Use for managing tickets, branches, PRs, and reading deployment docs.
+description: Engineering SDLC tools — Jira, Bitbucket, Confluence, SSH servers, Jenkins CI/CD, and deployment automation.
 ---
 
 # Engineering Agent Tools
 
-This skill provides API references for the engineering workflow. All API calls use `curl` — OneCLI's HTTPS proxy automatically injects auth headers based on the request host. Do NOT add Authorization headers manually.
+This skill provides API references for the engineering workflow. HTTPS API calls use `curl` with OneCLI proxy auth injection. SSH access uses pre-mounted keys with host aliases. Jenkins is accessed via SSH tunnel.
 
 ## Jira
 
@@ -42,4 +42,45 @@ Quick reference:
 ```bash
 # Search for deployment docs
 curl -s "https://redawning.atlassian.net/wiki/rest/api/content?title=Development+Deployment+Workflow&spaceKey=PO"
+```
+
+## SSH Servers
+
+Read `/home/node/.claude/skills/engineering-agent/ssh.md` for the full reference.
+
+Quick reference:
+```bash
+# Connect using aliases (keys are pre-mounted)
+ssh staging    # lubuntus@192.168.1.175
+ssh jenkins    # mindopropops@192.168.1.201
+ssh dev        # risky@192.168.1.56
+
+# Check service status
+ssh staging "systemctl status propops-webapp"
+```
+
+## Jenkins CI/CD
+
+Read `/home/node/.claude/skills/engineering-agent/jenkins.md` for the full API reference.
+
+Quick reference:
+```bash
+# Trigger build (via SSH tunnel)
+ssh jenkins "curl -s -X POST http://localhost:8080/job/<job-name>/build"
+
+# Check build status
+ssh jenkins "curl -s http://localhost:8080/job/<job-name>/lastBuild/api/json" | jq '{number, result, building}'
+```
+
+## Deployment
+
+Read `/home/node/.claude/skills/engineering-agent/deploy.md` for full procedures.
+
+Quick reference:
+```bash
+# Deploy webapp to staging
+ssh staging "cd /opt/propops-webapp && git pull && npm run build && sudo systemctl restart propops-webapp"
+
+# Deploy to production via Jenkins
+ssh jenkins "curl -s -X POST 'http://localhost:8080/job/<webapp-prod-job>/buildWithParameters?BRANCH=master'"
 ```

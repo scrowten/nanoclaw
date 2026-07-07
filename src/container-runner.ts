@@ -4,6 +4,7 @@
  */
 import { ChildProcess, spawn } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 import {
@@ -252,6 +253,27 @@ function buildVolumeMounts(
       isMain,
     );
     mounts.push(...validatedMounts);
+  }
+
+  if (group.containerConfig?.sshAccess) {
+    const sshKeysDir = path.join(
+      os.homedir(),
+      '.config',
+      'nanoclaw',
+      'ssh-keys',
+    );
+    if (fs.existsSync(sshKeysDir)) {
+      mounts.push({
+        hostPath: sshKeysDir,
+        containerPath: '/home/node/.ssh',
+        readonly: true,
+      });
+    } else {
+      logger.warn(
+        { group: group.name },
+        'sshAccess enabled but ~/.config/nanoclaw/ssh-keys/ not found',
+      );
+    }
   }
 
   return mounts;

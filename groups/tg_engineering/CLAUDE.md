@@ -57,7 +57,11 @@ AWAITING_APPROVAL → DEVELOPMENT : Explicit approval received
 DEVELOPMENT → REVIEW      : Implementation complete + tests pass
 REVIEW → DEVELOPMENT       : Code review finds blocking issues
 REVIEW → PR                : Code review is clean
-PR → DONE                  : PR merged and Jira updated
+PR → STAGING               : PR merged (auto) or manual trigger
+STAGING → DEPLOY           : Staging validation passes + approval
+STAGING → DEVELOPMENT      : Staging validation fails (rework)
+DEPLOY → DONE              : Production deployment successful
+DEPLOY → STAGING           : Production deployment fails (rollback)
 ```
 
 ### Entry/Exit Criteria
@@ -69,15 +73,17 @@ PR → DONE                  : PR merged and Jira updated
 | AWAITING_APPROVAL | ANALYSIS exit; requirements visible in chat | Human sends an approval keyword | *Human approval* |
 | DEVELOPMENT | AWAITING_APPROVAL exit; approval recorded in state file | All requirements implemented; tests pass locally | — |
 | REVIEW | DEVELOPMENT exit; code compiles and tests pass | Code review has zero CRITICAL/HIGH findings | Code review sub-agent |
-| PR | REVIEW exit; review is clean | PR created on Bitbucket; Jira transitioned | — |
-| DONE | PR exit; PR URL posted to chat | — | — |
+| PR | REVIEW exit; review is clean | PR created on Bitbucket | — |
+| STAGING | PR merged or manual deploy trigger | Staging deployment successful + user confirms | *Human approval* |
+| DEPLOY | STAGING exit; staging validated and approved | Production deployment successful | *Human approval* |
+| DONE | DEPLOY exit; production verified; Jira transitioned to Done | — | — |
 
 ### Transition Rules
 
-- Transitions are *forward-only* except REVIEW → DEVELOPMENT (rework loop).
+- Transitions are *forward-only* except REVIEW → DEVELOPMENT and STAGING → DEVELOPMENT (rework loops).
 - You MUST NOT skip states. Every workflow passes through every state in order.
 - If a workflow is stuck (no human response for 24h), post a reminder. After 48h, post a stalled notification.
-- On any error (API failure, git conflict, test failure), post the error to chat and wait for guidance. Do NOT retry silently more than once.
+- On any error (API failure, git conflict, test failure, deploy failure), post the error to chat and wait for guidance. Do NOT retry silently more than once.
 
 ### Workflow State Files
 
@@ -238,8 +244,50 @@ git config user.name "Engineering Agent"
    - Title: `<JIRA-KEY>: <short description>`
    - Description: Jira link, summary of changes, test evidence
 3. Post the PR URL to chat
-4. Transition Jira ticket to "Done" (or "In Review" if waiting for CI)
-5. Update workflow state to `done`
+4. Transition Jira ticket to "In Review"
+5. Transition to `staging` after PR is merged (or on explicit "deploy to staging" command)
+
+## Step 7: STAGING — Deploy to Staging
+
+1. Deploy to staging server via SSH:
+   ```bash
+   ssh staging "cd /opt/propops-webapp && git fetch origin && git pull origin master && npm install && npm run build && sudo systemctl restart propops-webapp"
+   ```
+   (Verify actual paths on first use — see `/home/node/.claude/skills/engineering-agent/deploy.md`)
+2. Verify deployment:
+   ```bash
+   ssh staging "systemctl status propops-webapp --no-pager"
+   ssh staging "curl -sf http://localhost:3000/health || echo 'HEALTH CHECK FAILED'"
+   ssh staging "journalctl -u propops-webapp --since '2 minutes ago' --no-pager -n 20"
+   ```
+3. Post deployment status to chat:
+   "Deployed to staging. Service is running. Please verify and reply *approved* to proceed to production."
+
+⚠️ *This is an approval gate.* Same rules as Step 3 — STOP and wait for human approval before production deploy.
+
+4. On approval: record approval and transition to `deploy`
+5. On rejection: investigate, fix, re-deploy to staging
+
+## Step 8: DEPLOY — Deploy to Production
+
+1. Trigger production Jenkins job:
+   ```bash
+   ssh jenkins "curl -s -X POST 'http://localhost:8080/job/<webapp-prod-job>/buildWithParameters?BRANCH=master'"
+   ```
+2. Monitor build status (poll every 30s, max 10 minutes):
+   ```bash
+   ssh jenkins "curl -s http://localhost:8080/job/<webapp-prod-job>/lastBuild/api/json" | jq '{number, result, building}'
+   ```
+3. If build succeeds:
+   - Post to chat: "Production deployment successful. Build #<N>."
+   - Transition Jira ticket to Done
+   - Update workflow state to `done`
+4. If build fails:
+   - Get console output: `ssh jenkins "curl -s http://localhost:8080/job/<webapp-prod-job>/lastBuild/consoleText" | tail -50`
+   - Post error summary to chat
+   - Ask: "Build failed. Should I trigger rollback?"
+   - On approval: trigger rollback (re-run last successful build)
+   - On rejection: wait for manual intervention
 
 ---
 
@@ -297,3 +345,28 @@ Auth: Same as Jira (auto-injected by OneCLI)
 Key operations:
 - Search: `curl -s "https://redawning.atlassian.net/wiki/rest/api/content?title=<title>&spaceKey=<key>"`
 - Read page: `curl -s "https://redawning.atlassian.net/wiki/rest/api/content/{id}?expand=body.storage"`
+
+### SSH Servers
+
+Auth: SSH keys pre-mounted at `~/.ssh/`. Use host aliases.
+
+| Alias | Host | User | Purpose |
+|-------|------|------|---------|
+| staging | 192.168.1.175 | lubuntus | PropOps staging, Airflow, OSRM |
+| jenkins | 192.168.1.201 | mindopropops | Jenkins CI/CD, production deploys |
+| dev | 192.168.1.56 | risky | General debugging |
+
+Key operations:
+- Connect: `ssh staging`, `ssh jenkins`, `ssh dev`
+- Service status: `ssh staging "systemctl status propops-webapp"`
+- Logs: `ssh staging "journalctl -u propops-webapp --since '1 hour ago' --no-pager -n 50"`
+
+### Jenkins CI/CD (via SSH tunnel)
+
+Access Jenkins on `192.168.1.201` through SSH since it runs on HTTP.
+
+Key operations:
+- Trigger build: `ssh jenkins "curl -s -X POST http://localhost:8080/job/<job>/build"`
+- Build status: `ssh jenkins "curl -s http://localhost:8080/job/<job>/lastBuild/api/json" | jq '{number, result, building}'`
+- Console output: `ssh jenkins "curl -s http://localhost:8080/job/<job>/lastBuild/consoleText" | tail -50`
+- List jobs: `ssh jenkins "curl -s http://localhost:8080/api/json?tree=jobs[name,color]" | jq '.jobs[]'`
